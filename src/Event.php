@@ -4,6 +4,8 @@ declare(strict_types=1); // @codeCoverageIgnore
 
 namespace Recoil\ReferenceKernel;
 
+use Closure;
+
 /**
  * Please note that this code is not part of the public API. It may be
  * changed or removed at any time without notice.
@@ -18,16 +20,17 @@ final class Event
     /**
      * @var float The time at which the event is scheduled, in seconds.
      */
-    public $time;
+    public float $time;
 
     /**
-     * @var callable|null The action to perform when the event fires (null = cancelled).
+     * @var Closure|null The action to perform when the event fires (null = cancelled).
      */
-    public $fn;
+    public Closure|null $fn;
+
 
     /**
-     * @param float    $time The time at which the event is scheduled, in seconds.
-     * @param callable $fn   The action to perform when the event fires.
+     * @param float $time The time at which the event is scheduled, in seconds.
+     * @param callable $fn The action to perform when the event fires.
      */
     public function __construct(float $time, callable $fn)
     {

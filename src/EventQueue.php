@@ -17,6 +17,27 @@ use SplPriorityQueue;
  */
 class EventQueue
 {
+    /**
+     * @var SplPriorityQueue<Event>
+     */
+    private SplPriorityQueue $queue;
+
+    /**
+     * @var int The number of events in the queue.
+     */
+    private int $queueSize = 0;
+
+    /**
+     * @var int The number of active (uncancelled) events in the queue.
+     */
+    private int $pendingEvents = 0;
+
+    /**
+     * @var float The execution time of the next event in the queue.
+     */
+    private float $nextTime = 0;
+
+
     public function __construct()
     {
         $this->queue = new SplPriorityQueue();
@@ -28,8 +49,8 @@ class EventQueue
      * Any events scheduled from within an event action function are
      * guaranteed not to be executed during the current tick.
      *
-     * @param float    $delay The delay before execution, in seconds.
-     * @param callable $fn    The action to perform after the delay.
+     * @param float $delay The delay before execution, in seconds.
+     * @param callable $fn The action to perform after the delay.
      *
      * @return callable A function used to cancel the event.
      */
@@ -59,7 +80,7 @@ class EventQueue
      *
      * @return int|null The number if microseconds until the next event (null = none).
      */
-    public function tick()
+    public function tick(): ?int
     {
         $time = \microtime(true);
 
@@ -101,26 +122,6 @@ class EventQueue
             return 0;
         }
 
-        return (int) ($delta * 1000000);
+        return (int)($delta * 1000000);
     }
-
-    /**
-     * @var SplPriorityQueue<Event>
-     */
-    private $queue;
-
-    /**
-     * @var int The number of events in the queue.
-     */
-    private $queueSize = 0;
-
-    /**
-     * @var int The number of active (uncancelled) events in the queue.
-     */
-    private $pendingEvents = 0;
-
-    /**
-     * @var float The execution time of the next event in the queue.
-     */
-    private $nextTime = 0;
 }
