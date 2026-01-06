@@ -7,9 +7,10 @@
 
 declare(strict_types = 1);
 
+use Recoil\Kernel\ReferenceKernel;
+
 require __DIR__ . '/../vendor/autoload.php';
 
-use Recoil\ReferenceKernel\ReferenceKernel;
 
 function hello()
 {

@@ -2,11 +2,11 @@
 
 declare(strict_types=1); // @codeCoverageIgnore
 
-namespace Recoil\ReferenceKernel;
+namespace Recoil;
 
-use Recoil\Awaitable;
-use Recoil\Kernel\StrandTrait;
-use Recoil\Kernel\SystemStrand;
+
+use Recoil\Strand\StrandTrait;
+use Recoil\System\SystemStrand;
 
 /**
  * Please note that this code is not part of the public API. It may be
@@ -16,7 +16,7 @@ use Recoil\Kernel\SystemStrand;
  *
  * The reference kernel's strand implementation.
  */
-final class ReferenceStrand implements SystemStrand, Awaitable
+final class ReferenceStrand implements SystemStrand
 {
     use StrandTrait;
 }

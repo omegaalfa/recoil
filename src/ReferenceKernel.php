@@ -2,23 +2,72 @@
 
 declare(strict_types=1); // @codeCoverageIgnore
 
-namespace Recoil\ReferenceKernel;
+namespace Recoil;
 
-use Recoil\Kernel\Api;
+use Exception;
+use Recoil\Api\Api;
 use Recoil\Kernel\KernelState;
 use Recoil\Kernel\KernelTrait;
-use Recoil\Kernel\SystemKernel;
-use Recoil\Strand;
+use Recoil\Strand\Strand;
+use Recoil\System\SystemKernel;
 
 /**
  * The reference kernel implementation.
  */
 final class ReferenceKernel implements SystemKernel
 {
+
+    use KernelTrait;
+
+    /**
+     * @var EventQueue The queue used to schedule events.
+     */
+    private EventQueue $events;
+
+    /**
+     * @var IO The object used to perform IO.
+     */
+    private IO $io;
+
+    /**
+     * @var Api The kernel API exposed to strands.
+     */
+    private Api $api;
+
+    /**
+     * @var int The next strand ID.
+     */
+    private int $nextId = 1;
+
+    /**
+     * Please note that this code is not part of the public API. It may be
+     * changed or removed at any time without notice.
+     *
+     * @access private
+     *
+     * This constructor is public so that it may be used by auto-wiring
+     * dependency injection containers. If you are explicitly constructing an
+     * instance please use one of the static factory methods listed below.
+     *
+     * @param EventQueue $events The queue used to schedule events.
+     * @param IO $io The object used to perform IO.
+     * @param Api $api The kernel API exposed to strands.
+     * @see ReferenceKernel::create()
+     *
+     */
+    public function __construct(EventQueue $events, IO $io, Api $api)
+    {
+        $this->events = $events;
+        $this->io = $io;
+        $this->api = $api;
+    }
+
+
     /**
      * Create a new kernel.
+     * @param mixed|null $arguments
      */
-    public static function create(): self
+    public static function create(mixed $arguments = null): self
     {
         $events = new EventQueue();
         $io = new IO();
@@ -35,7 +84,7 @@ final class ReferenceKernel implements SystemKernel
      *
      * @param mixed $coroutine The coroutine to execute.
      */
-    public function execute($coroutine): Strand
+    public function execute(mixed $coroutine): Strand
     {
         $strand = new ReferenceStrand(
             $this,
@@ -56,37 +105,16 @@ final class ReferenceKernel implements SystemKernel
         return $strand;
     }
 
-    /**
-     * Please note that this code is not part of the public API. It may be
-     * changed or removed at any time without notice.
-     *
-     * @access private
-     *
-     * This constructor is public so that it may be used by auto-wiring
-     * dependency injection containers. If you are explicitly constructing an
-     * instance please use one of the static factory methods listed below.
-     *
-     * @see ReferenceKernel::create()
-     *
-     * @param EventQueue $events The queue used to schedule events.
-     * @param IO         $io     The object used to perform IO.
-     * @param Api        $api    The kernel API exposed to strands.
-     */
-    public function __construct(EventQueue $events, IO $io, Api $api)
-    {
-        $this->events = $events;
-        $this->io = $io;
-        $this->api = $api;
-    }
 
     /**
      * The kernel's main event loop. Invoked inside the run() method.
      *
      * Loop must return when $this->state is KernelState::STOPPING.
      *
-     * @return null
+     * @return void
+     * @throws Exception
      */
-    protected function loop()
+    protected function loop(): void
     {
         do {
             $timeout = $this->events->tick();
@@ -97,31 +125,6 @@ final class ReferenceKernel implements SystemKernel
 
             $io = $this->io->tick($timeout);
 
-            if ($this->state !== KernelState::RUNNING) {
-                return;
-            }
         } while ($timeout !== null || $io !== IO::INACTIVE);
     }
-
-    use KernelTrait;
-
-    /**
-     * @var EventQueue The queue used to schedule events.
-     */
-    private $events;
-
-    /**
-     * @var IO The object used to perform IO.
-     */
-    private $io;
-
-    /**
-     * @var Api The kernel API exposed to strands.
-     */
-    private $api;
-
-    /**
-     * @var int The next strand ID.
-     */
-    private $nextId = 1;
 }

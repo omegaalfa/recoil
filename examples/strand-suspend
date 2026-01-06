@@ -12,9 +12,9 @@ declare(strict_types = 1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use Recoil\Strand;
-use Recoil\ReferenceKernel\ReferenceKernel;
 use Recoil\Recoil;
+use Recoil\ReferenceKernel\ReferenceKernel;
+use Recoil\Strand\Strand;
 
 ReferenceKernel::start(function () {
     echo 'Suspending the current strand.' . PHP_EOL;

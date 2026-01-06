@@ -2,14 +2,14 @@
 
 declare(strict_types=1); // @codeCoverageIgnore
 
-namespace Recoil\ReferenceKernel;
+namespace Recoil;
 
-use Recoil\Awaitable;
+
+use Closure;
 use Recoil\Exception\TimeoutException;
-use Recoil\Kernel\Api;
-use Recoil\Kernel\SystemStrand;
-use Recoil\Listener;
-use Recoil\Strand;
+use Recoil\Listener\Listener;
+use Recoil\Strand\Strand;
+use Recoil\System\SystemStrand;
 use Throwable;
 
 /**
@@ -21,18 +21,45 @@ use Throwable;
  * An implementation of Api::timeout() based on the reference kernel's event
  * queue.
  */
-final class StrandTimeout implements Awaitable, Listener
+final class StrandTimeout implements Listener
 {
+
+    /**
+     * @var EventQueue The event queue used to schedule the timeout event.
+     */
+    private EventQueue $events;
+
+    /**
+     * @var ?Closure The function to call to cancel the timeout event.
+     */
+    private ?Closure $cancel;
+
+    /**
+     * @var float The timeout, in seconds.
+     */
+    private float $timeout;
+
+    /**
+     * @var Listener|Strand|null The object to notify upon completion.
+     */
+    private $listener;
+
+    /**
+     * @var ?SystemStrand The strand to wait for.
+     */
+    private ?SystemStrand $substrand;
+
     /**
      * @var EventQueue   The event queue used to schedule the timeout event.
-     * @var float        $timeout   The timeout, in seconds.
+     * @var float $timeout The timeout, in seconds.
      * @var SystemStrand $substrand The strand to wait for.
      */
     public function __construct(
-        EventQueue $events,
-        float $timeout,
+        EventQueue   $events,
+        float        $timeout,
         SystemStrand $substrand
-    ) {
+    )
+    {
         $this->events = $events;
         $this->timeout = $timeout;
         $this->substrand = $substrand;
@@ -43,7 +70,7 @@ final class StrandTimeout implements Awaitable, Listener
      *
      * @param Listener $listener The object to resume when the work is complete.
      */
-    public function await(Listener $listener)
+    public function await($listener)
     {
         $this->cancel = $this->events->schedule(
             $this->timeout,
@@ -73,57 +100,31 @@ final class StrandTimeout implements Awaitable, Listener
     }
 
     /**
-     * Send the result of a successful operation.
-     *
-     * @param mixed       $value  The operation result.
-     * @param Strand|null $strand The strand that produced this result upon exit, if any.
-     */
-    public function send($value = null, Strand $strand = null)
-    {
-        assert($this->substrand === $strand, 'unknown strand');
-
-        $this->substrand = null;
-        ($this->cancel)();
-        $this->listener->send($value);
-    }
-
-    /**
      * Send the result of an unsuccessful operation.
      *
-     * @param Throwable   $exception The operation result.
-     * @param Strand|null $strand    The strand that produced this exception upon exit, if any.
+     * @param Throwable $exception The operation result.
+     * @param Strand|null $strand The strand that produced this exception upon exit, if any.
      */
-    public function throw(Throwable $exception, Strand $strand = null)
+    public function throw(Throwable $exception, ?Strand $strand = null): void
     {
-        assert($this->substrand === $strand, 'unknown strand');
-
         $this->substrand = null;
         ($this->cancel)();
         $this->listener->throw($exception);
     }
 
     /**
-     * @var EventQueue The event queue used to schedule the timeout event.
+     * Send the result of a successful operation.
+     *
+     * @param mixed $value The operation result.
+     * @param Strand|null $strand The strand that produced this result upon exit, if any.
      */
-    private $events;
+    public function send(mixed $value = null, ?Strand $strand = null): void
+    {
 
-    /**
-     * @var callable|null The function to call to cancel the timeout event.
-     */
-    private $cancel;
+        $this->substrand = null;
+        ($this->cancel)();
+        $this->listener->send($value);
+    }
 
-    /**
-     * @var float The timeout, in seconds.
-     */
-    private $timeout;
 
-    /**
-     * @var Listener|null The object to notify upon completion.
-     */
-    private $listener;
-
-    /**
-     * @var Strand|null The strand to wait for.
-     */
-    private $substrand;
 }

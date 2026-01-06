@@ -2,12 +2,12 @@
 
 declare(strict_types=1); // @codeCoverageIgnore
 
-namespace Recoil\ReferenceKernel;
+namespace Recoil;
 
 use ErrorException;
-use Recoil\Kernel\Api;
-use Recoil\Kernel\ApiTrait;
-use Recoil\Kernel\SystemStrand;
+use Generator;
+use Recoil\Api\Api;
+use Recoil\System\SystemStrand;
 
 /**
  * Please note that this code is not part of the public API. It may be
@@ -19,9 +19,27 @@ use Recoil\Kernel\SystemStrand;
  */
 final class ReferenceApi implements Api
 {
+
+    /**
+     * The maximum number of bytes to read from a stream in a single call to
+     * fread().
+     */
+    const int MAX_READ_LENGTH = 32768;
+
+    /**
+     * @var EventQueue The queue used to schedule events.
+     */
+    private EventQueue $events;
+
+    /**
+     * @var IO The object used to perform IO.
+     */
+    private IO $io;
+
+
     /**
      * @param EventQueue $events The queue used to schedule events.
-     * @param IO         $io     The object used to perform IO.
+     * @param IO $io The object used to perform IO.
      */
     public function __construct(EventQueue $events, IO $io)
     {
@@ -32,13 +50,14 @@ final class ReferenceApi implements Api
     /**
      * Force the current strand to cooperate.
      *
-     * @see Recoil::cooperate() for the full specification.
-     *
      * @param SystemStrand $strand The strand executing the API call.
      *
      * @return Generator|null
+     *
+     * @see Recoil::cooperate() for the full specification.
+     *
      */
-    public function cooperate(SystemStrand $strand)
+    public function cooperate(SystemStrand $strand): ?Generator
     {
         $strand->setTerminator(
             $this->events->schedule(
@@ -48,19 +67,20 @@ final class ReferenceApi implements Api
                 }
             )
         );
+        return null;
     }
 
     /**
      * Suspend the current strand for a fixed interval.
      *
-     * @see Recoil::sleep() for the full specification.
-     *
-     * @param SystemStrand $strand   The strand executing the API call.
-     * @param float        $interval The interval to wait, in seconds.
+     * @param SystemStrand $strand The strand executing the API call.
+     * @param float $interval The interval to wait, in seconds.
      *
      * @return Generator|null
+     * @see Recoil::sleep() for the full specification.
+     *
      */
-    public function sleep(SystemStrand $strand, float $interval)
+    public function sleep(SystemStrand $strand, float $interval): ?Generator
     {
         $strand->setTerminator(
             $this->events->schedule(
@@ -70,24 +90,23 @@ final class ReferenceApi implements Api
                 }
             )
         );
+        return null;
     }
 
     /**
      * Execute a coroutine with a cap on execution time.
      *
-     * @see Recoil::timeout() for the full specification.
-     *
-     * @param SystemStrand $strand    The strand executing the API call.
-     * @param float        $timeout   The interval to allow for execution, in seconds.
-     * @param mixed        $coroutine The coroutine to execute.
+     * @param SystemStrand $strand The strand executing the API call.
+     * @param float $timeout The interval to allow for execution, in seconds.
+     * @param mixed $coroutine The coroutine to execute.
      *
      * @return Generator|null
+     * @see Recoil::timeout() for the full specification.
+     *
      */
-    public function timeout(SystemStrand $strand, float $timeout, $coroutine)
+    public function timeout(SystemStrand $strand, float $timeout, mixed $coroutine): ?Generator
     {
         $substrand = $strand->kernel()->execute($coroutine);
-
-        assert($substrand instanceof SystemStrand);
 
         $awaitable = new StrandTimeout(
             $this->events,
@@ -96,29 +115,24 @@ final class ReferenceApi implements Api
         );
 
         $awaitable->await($strand);
+
+        return null;
     }
 
     /**
      * Read data from a stream.
      *
-     * @see Recoil::read() for the full specification.
-     *
-     * @param SystemStrand $strand    The strand executing the API call.
-     * @param resource     $stream    A readable stream resource.
-     * @param int          $minLength The minimum number of bytes to read.
-     * @param int          $maxLength The maximum number of bytes to read.
+     * @param SystemStrand $strand The strand executing the API call.
+     * @param resource $stream A readable stream resource.
+     * @param int $minLength The minimum number of bytes to read.
+     * @param int $maxLength The maximum number of bytes to read.
      *
      * @return Generator|null
+     * @see Recoil::read() for the full specification.
+     *
      */
-    public function read(
-        SystemStrand $strand,
-        $stream,
-        int $minLength,
-        int $maxLength
-    ) {
-        assert($minLength >= 1, 'minimum length must be at least one');
-        assert($minLength <= $maxLength, 'minimum length must not exceed maximum length');
-
+    public function read(SystemStrand $strand, mixed $stream, int $minLength, int $maxLength): ?Generator
+    {
         $buffer = '';
         $done = null;
         $done = $this->io->select(
@@ -134,9 +148,7 @@ final class ReferenceApi implements Api
             ) {
                 $chunk = @\fread(
                     $stream,
-                    $maxLength < self::MAX_READ_LENGTH
-                        ? $maxLength
-                        : self::MAX_READ_LENGTH
+                    min($maxLength, self::MAX_READ_LENGTH)
                 );
 
                 if ($chunk === false) {
@@ -172,36 +184,59 @@ final class ReferenceApi implements Api
         );
 
         $strand->setTerminator($done);
+        return null;
+    }
+
+    /**
+     * Wait for one or more streams to become readable or writable.
+     *
+     * @param SystemStrand $strand The strand executing the API call.
+     * @param array<resource> $read The set of readable streams.
+     * @param array<resource> $read The set of writable streams.
+     *
+     * @return Generator|null
+     * @see Recoil::select() for the full specification.
+     *
+     */
+    public function select(SystemStrand $strand, array $read, array $write): ?Generator
+    {
+        $done = null;
+        $done = $this->io->select(
+            $read,
+            $write,
+            function ($read, $write) use ($strand, &$done) {
+                $done();
+                $strand->send([$read, $write]);
+            }
+        );
+
+        $strand->setTerminator($done);
+
+        return null;
     }
 
     /**
      * Write data to a stream.
      *
-     * @see Recoil::write() for the full specification.
-     *
      * @param SystemStrand $strand The strand executing the API call.
-     * @param resource     $stream A writable stream resource.
-     * @param string       $buffer The data to write to the stream.
-     * @param int          $length The maximum number of bytes to write.
+     * @param resource $stream A writable stream resource.
+     * @param string $buffer The data to write to the stream.
+     * @param int $length The maximum number of bytes to write.
      *
      * @return Generator|null
+     * @see Recoil::write() for the full specification.
+     *
      */
-    public function write(
-        SystemStrand $strand,
-        $stream,
-        string $buffer,
-        int $length
-    ) {
+    public function write(SystemStrand $strand, mixed $stream, string $buffer, int $length): ?Generator
+    {
         $bufferLength = \strlen($buffer);
 
         if ($bufferLength < $length) {
             $length = $bufferLength;
         }
 
-        if ($length == 0) {
+        if ($length === 0) {
             $strand->send();
-
-            return;
         }
 
         $done = null;
@@ -244,49 +279,8 @@ final class ReferenceApi implements Api
         );
 
         $strand->setTerminator($done);
+        return null;
+
     }
 
-    /**
-     * Wait for one or more streams to become readable or writable.
-     *
-     * @see Recoil::select() for the full specification.
-     *
-     * @param SystemStrand    $strand The strand executing the API call.
-     * @param array<resource> $read   The set of readable streams.
-     * @param array<resource> $read   The set of writable streams.
-     *
-     * @return Generator|null
-     */
-    public function select(SystemStrand $strand, array $read, array $write)
-    {
-        $done = null;
-        $done = $this->io->select(
-            $read,
-            $write,
-            function ($read, $write) use ($strand, &$done) {
-                $done();
-                $strand->send([$read, $write]);
-            }
-        );
-
-        $strand->setTerminator($done);
-    }
-
-    use ApiTrait;
-
-    /**
-     * The maximum number of bytes to read from a stream in a single call to
-     * fread().
-     */
-    const MAX_READ_LENGTH = 32768;
-
-    /**
-     * @var EventQueue The queue used to schedule events.
-     */
-    private $events;
-
-    /**
-     * @var IO The object used to perform IO.
-     */
-    private $io;
 }

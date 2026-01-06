@@ -1,20 +1,15 @@
 {
   "name": "recoil/recoil",
-  "description": "Asynchronous coroutines for PHP 7.",
+  "description": "Asynchronous coroutines for PHP 8.",
   "require": {
-    "php": "^7.4",
-    "recoil/api": "^1",
-    "recoil/kernel": "^1.0.2"
+    "php": "8.4",
+    "omegaalfa/fiber-event-loop": "dev-main"
   },
   "require-dev": {
-    "eloquent/phony": "^5",
+    "roave/security-advisories": "dev-latest",
     "friendsofphp/php-cs-fixer": "^2",
-    "peridot-php/leo": "dev-php-8 as 1.999.999",
-    "peridot-php/peridot": "dev-php-8 as 1.999.999",
-    "peridot-php/peridot-code-coverage-reporters": "dev-php-8 as 2.999.999",
-    "react/dns": "^0.4",
-    "recoil/dev": "^0.4",
-    "recoil/react": "^1"
+    "phpunit/phpunit": "^11.5",
+    "react/dns": "^0.4"
   },
   "repositories": [
     {
@@ -32,12 +27,12 @@
   ],
   "autoload": {
     "psr-4": {
-      "Recoil\\ReferenceKernel\\": "src"
+      "Recoil\\": "src"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Recoil\\ReferenceKernel\\": "test/src"
+      "Recoil\\ReferenceKernel\\": "Tests"
     }
   },
   "keywords": [
@@ -64,10 +59,17 @@
   "config": {
     "sort-packages": true,
     "platform": {
-      "php": "7.4"
+      "php": "8.4"
     },
     "allow-plugins": {
       "recoil/dev": true
     }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "test-coverage": "phpunit --coverage-html=coverage --coverage-text",
+    "test-verbose": "phpunit --verbose",
+    "test-filter": "phpunit --filter",
+    "test-stop-on-failure": "phpunit --stop-on-failure"
   }
 }

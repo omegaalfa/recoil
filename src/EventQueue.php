@@ -2,7 +2,7 @@
 
 declare(strict_types=1); // @codeCoverageIgnore
 
-namespace Recoil\ReferenceKernel;
+namespace Recoil;
 
 use SplPriorityQueue;
 
